@@ -47,6 +47,7 @@ class StockServiceTest {
 
     @Test
     public void concurrencyRequest() throws InterruptedException {
+//        synchronized 처리가 없을시:
 //        expected:<Optional[0]> but was:<92>
 //        필요:Optional[0]
 //        실제   :92
@@ -67,6 +68,6 @@ class StockServiceTest {
         latch.await();
 
         Stock stock=stockRepsitory.findById(1L).orElseThrow();
-        Assert.assertEquals(Optional.of(0L),stock.getQuantity());
+        Assert.assertEquals(Optional.of(0L).get(),stock.getQuantity());
     }
 }
