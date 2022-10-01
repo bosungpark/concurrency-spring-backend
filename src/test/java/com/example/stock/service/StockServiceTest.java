@@ -25,6 +25,9 @@ class StockServiceTest {
     @Autowired
     private StockRepsitory stockRepsitory;
 
+    @Autowired
+    private PerssimisticLockStorkService perssimisticLockStorkService;
+
     @BeforeEach
     public void before(){
         Stock stock=new Stock(1L,100L);
@@ -46,7 +49,7 @@ class StockServiceTest {
     }
 
     @Test
-    public void concurrencyRequest() throws InterruptedException {
+    public void concurrencyRequestWithSynchronized() throws InterruptedException {
 //        synchronized 처리가 없을시:
 //        expected:<Optional[0]> but was:<92>
 //        필요:Optional[0]
@@ -60,6 +63,27 @@ class StockServiceTest {
             executorService.submit(()->{
                 try {
                     stockService.decrease(1L,1L);
+                } finally {
+                    latch.countDown();
+                }
+            });
+        }
+        latch.await();
+
+        Stock stock=stockRepsitory.findById(1L).orElseThrow();
+        Assert.assertEquals(Optional.of(0L).get(),stock.getQuantity());
+    }
+
+    @Test
+    public void concurrencyRequestWithPerssimisicLock() throws InterruptedException {
+        int threadCnt=100;
+        ExecutorService executorService= Executors.newFixedThreadPool(32);
+        CountDownLatch latch = new CountDownLatch(threadCnt);
+
+        for (int i=0; i<threadCnt; i++) {
+            executorService.submit(()->{
+                try {
+                    perssimisticLockStorkService.decrease(1L,1L);
                 } finally {
                     latch.countDown();
                 }
