@@ -1,6 +1,7 @@
 package com.example.stock.service;
 
 import com.example.stock.domain.Stock;
+import com.example.stock.facade.NamedLockStockFacade;
 import com.example.stock.facade.OptimisticLockStockFacade;
 import com.example.stock.repository.StockRepsitory;
 import org.junit.Assert;
@@ -31,6 +32,9 @@ class StockServiceTest {
 
     @Autowired
     private OptimisticLockStockFacade optimisticLockStockFacade;
+
+    @Autowired
+    private NamedLockStockFacade namedLockStockFacade;
 
     @BeforeEach
     public void before(){
@@ -113,6 +117,27 @@ class StockServiceTest {
                     optimisticLockStockFacade.decrease(1L,1L);
                 } catch (InterruptedException e) {
                     e.printStackTrace();
+                } finally {
+                    latch.countDown();
+                }
+            });
+        }
+        latch.await();
+
+        Stock stock=stockRepsitory.findById(1L).orElseThrow();
+        Assert.assertEquals(Optional.of(0L).get(),stock.getQuantity());
+    }
+
+    @Test
+    public void concurrencyRequestWithNamedLock() throws InterruptedException {
+        int threadCnt=100;
+        ExecutorService executorService= Executors.newFixedThreadPool(32);
+        CountDownLatch latch = new CountDownLatch(threadCnt);
+
+        for (int i=0; i<threadCnt; i++) {
+            executorService.submit(()->{
+                try {
+                    namedLockStockFacade.decrease(1L,1L);
                 } finally {
                     latch.countDown();
                 }
