@@ -1,6 +1,7 @@
 package com.example.stock.service;
 
 import com.example.stock.domain.Stock;
+import com.example.stock.facade.OptimisticLockStockFacade;
 import com.example.stock.repository.StockRepsitory;
 import org.junit.Assert;
 import org.junit.jupiter.api.AfterEach;
@@ -27,6 +28,9 @@ class StockServiceTest {
 
     @Autowired
     private PerssimisticLockStorkService perssimisticLockStorkService;
+
+    @Autowired
+    private OptimisticLockStockFacade optimisticLockStockFacade;
 
     @BeforeEach
     public void before(){
@@ -84,6 +88,31 @@ class StockServiceTest {
             executorService.submit(()->{
                 try {
                     perssimisticLockStorkService.decrease(1L,1L);
+                } finally {
+                    latch.countDown();
+                }
+            });
+        }
+        latch.await();
+
+        Stock stock=stockRepsitory.findById(1L).orElseThrow();
+        Assert.assertEquals(Optional.of(0L).get(),stock.getQuantity());
+    }
+
+    @Test
+    public void concurrencyRequestWithOptimisicLock() throws InterruptedException {
+//        업데이트가 실패하면 재시도를 한다.
+//        충돌이 적다면 성능이 좋은 편이지만, 빈번할 때는 성능이 매우 저하될 수 있다.
+        int threadCnt=100;
+        ExecutorService executorService= Executors.newFixedThreadPool(32);
+        CountDownLatch latch = new CountDownLatch(threadCnt);
+
+        for (int i=0; i<threadCnt; i++) {
+            executorService.submit(()->{
+                try {
+                    optimisticLockStockFacade.decrease(1L,1L);
+                } catch (InterruptedException e) {
+                    e.printStackTrace();
                 } finally {
                     latch.countDown();
                 }
